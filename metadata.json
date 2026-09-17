@@ -1,6 +1,8 @@
 {
   "name": "FlowGenie HR: Autonomous Multi-Agent Workplace Orchestrator",
-  "description": "Enterprise autonomous multi-agent orchestrator for workplace onboarding, SLA validation, and cryptographically verified HMAC audit trails.",
+  "description": "Enterprise autonomous multi-agent orchestrator managing onboarding, meeting actions, employee task and deadline tracking, inactivity HR alerts, and cryptographically verified HMAC audit trails.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -14,9 +14,13 @@ import {
   CheckCircle2,
   Lock,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Clock,
+  MessageSquareQuote,
+  BellRing,
+  AlertTriangle
 } from 'lucide-react';
-import { UserProfile, UserRole, ROLE_PERMISSIONS } from '../types/agent';
+import { UserProfile, UserRole, ROLE_PERMISSIONS, HRAlert } from '../types/agent';
 
 interface NavigationProps {
   currentRoute: string;
@@ -24,6 +28,7 @@ interface NavigationProps {
   user: UserProfile;
   onLogout: () => void;
   onSwitchRole: (role: UserRole) => void;
+  activeAlertsCount?: number;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -31,9 +36,11 @@ export const Navigation: React.FC<NavigationProps> = ({
   onNavigate,
   user,
   onLogout,
-  onSwitchRole
+  onSwitchRole,
+  activeAlertsCount = 2
 }) => {
   const [profileOpen, setProfileOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
 
   const roleConfig = ROLE_PERMISSIONS[user.role] || ROLE_PERMISSIONS['Employee'];
 
@@ -43,6 +50,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     icon: React.ComponentType<{ className?: string }>;
     allowedRoles: UserRole[];
     badge?: string;
+    badgeCount?: number;
   }> = [
     { 
       label: 'Overview', 
@@ -58,6 +66,20 @@ export const Navigation: React.FC<NavigationProps> = ({
       badge: 'Ops'
     },
     { 
+      label: 'Tasks & SLA Watchdog', 
+      route: '/dashboard/tasks-sla', 
+      icon: Clock,
+      allowedRoles: ['HR Admin', 'Admin', 'HR Manager', 'Employee'],
+      badgeCount: activeAlertsCount
+    },
+    { 
+      label: 'Meeting Actions', 
+      route: '/dashboard/meetings', 
+      icon: MessageSquareQuote,
+      allowedRoles: ['HR Admin', 'Admin', 'HR Manager', 'Employee'],
+      badge: 'AI'
+    },
+    { 
       label: 'System Architecture', 
       route: '/dashboard/architecture', 
       icon: Cpu,
@@ -65,7 +87,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       badge: 'Admin'
     },
     { 
-      label: 'Agent Communication Mesh', 
+      label: 'Agent Mesh Map', 
       route: '/dashboard/agent-map', 
       icon: Network,
       allowedRoles: ['HR Admin', 'Admin'],
@@ -111,7 +133,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             </button>
 
             {/* Active Tenant Badge */}
-            <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#141619] border border-[#22272F] text-xs font-mono text-slate-300">
+            <div className="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#141619] border border-[#22272F] text-xs font-mono text-slate-300">
               <Building2 className="w-3.5 h-3.5 text-cyan-400" />
               <span className="text-slate-400">ORG:</span>
               <span className="font-semibold text-emerald-400">HELPxGROW AI</span>
@@ -119,7 +141,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             </div>
           </div>
 
-          {/* Desktop Navigation Links with RBAC indicators */}
+          {/* Desktop Navigation Links with RBAC indicators & Badges */}
           <nav className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -130,7 +152,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <button
                   key={item.route}
                   onClick={() => onNavigate(item.route)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer relative ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer relative ${
                     isActive
                       ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/40 shadow-[0_0_12px_rgba(0,240,255,0.15)] font-semibold'
                       : isAllowed
@@ -144,141 +166,193 @@ export const Navigation: React.FC<NavigationProps> = ({
                   {!isAllowed && (
                     <Lock className="w-2.5 h-2.5 text-amber-400/80 ml-0.5" />
                   )}
+                  {item.badgeCount !== undefined && item.badgeCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-red-500 text-white animate-pulse">
+                      {item.badgeCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </nav>
 
-          {/* User Profile Menu & Role Switcher */}
-          <div className="relative">
+          {/* Right Header Area: HR Alert Bell + User Profile Menu */}
+          <div className="flex items-center gap-2">
+            {/* Quick HR Alerts Bell */}
             <button
-              onClick={() => setProfileOpen(!profileOpen)}
-              className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl bg-[#141619] hover:bg-[#1c2026] border border-[#22272F] text-xs transition-all cursor-pointer"
+              onClick={() => onNavigate('/dashboard/tasks-sla')}
+              className="relative p-2 rounded-xl bg-[#141619] hover:bg-[#1c2026] border border-[#22272F] text-slate-300 hover:text-red-400 transition-colors cursor-pointer"
+              title="Employee Inactivity & SLA Alerts"
             >
-              {/* User Avatar with fallback */}
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={user.name}
-                  referrerPolicy="no-referrer"
-                  className="w-7 h-7 rounded-lg object-cover border border-cyan-500/40 shrink-0"
-                />
-              ) : (
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-600 to-emerald-500 flex items-center justify-center text-white font-bold text-[11px] shrink-0">
-                  {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                </div>
+              <BellRing className={`w-4 h-4 ${activeAlertsCount > 0 ? 'text-red-400 animate-bounce' : 'text-slate-400'}`} />
+              {activeAlertsCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-mono font-bold flex items-center justify-center ring-2 ring-[#0B0C0E]">
+                  {activeAlertsCount}
+                </span>
               )}
-
-              <div className="text-left hidden sm:block max-w-[130px]">
-                <p className="text-slate-200 font-medium leading-none truncate">{user.name}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <span className={`text-[9px] font-mono font-semibold px-1.5 py-0.2 rounded border ${roleConfig.badgeClass}`}>
-                    {user.role}
-                  </span>
-                </div>
-              </div>
-              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Dropdown Menu */}
-            {profileOpen && (
-              <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-[#141619] border border-[#22272F] shadow-2xl py-3 z-50 text-xs">
-                {/* Profile Header */}
-                <div className="px-4 pb-3 border-b border-[#22272F]">
-                  <div className="flex items-center gap-3">
-                    {user.avatarUrl ? (
-                      <img
-                        src={user.avatarUrl}
-                        alt={user.name}
-                        referrerPolicy="no-referrer"
-                        className="w-10 h-10 rounded-xl object-cover border border-cyan-500/50"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">
-                        {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+            {/* User Profile Menu & Role Switcher */}
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[#141619] hover:bg-[#1c2026] border border-[#22272F] text-xs transition-all cursor-pointer"
+              >
+                {/* User Avatar with fallback */}
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    referrerPolicy="no-referrer"
+                    className="w-7 h-7 rounded-lg object-cover border border-cyan-500/40 shrink-0"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-600 to-emerald-500 flex items-center justify-center text-white font-bold text-[11px] shrink-0">
+                    {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  </div>
+                )}
+
+                <div className="text-left hidden sm:block max-w-[120px]">
+                  <p className="text-slate-200 font-medium leading-none truncate">{user.name}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className={`text-[9px] font-mono font-semibold px-1.5 py-0.2 rounded border ${roleConfig.badgeClass}`}>
+                      {user.role}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-[#141619] border border-[#22272F] shadow-2xl py-3 z-50 text-xs">
+                  {/* Profile Header */}
+                  <div className="px-4 pb-3 border-b border-[#22272F]">
+                    <div className="flex items-center gap-3">
+                      {user.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt={user.name}
+                          referrerPolicy="no-referrer"
+                          className="w-10 h-10 rounded-xl object-cover border border-cyan-500/50"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">
+                          {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                      )}
+                      <div className="overflow-hidden">
+                        <p className="text-slate-200 font-bold truncate">{user.name}</p>
+                        <p className="text-slate-400 text-[11px] truncate font-mono">{user.email}</p>
+                        <span className={`inline-block mt-1 text-[9px] font-mono px-1.5 py-0.5 rounded border ${roleConfig.badgeClass}`}>
+                          {roleConfig.clearanceLevel.split('·')[0].trim()}
+                        </span>
                       </div>
+                    </div>
+
+                    {user.bio && (
+                      <p className="mt-2.5 text-[11px] text-slate-400 italic line-clamp-2 bg-[#0B0C0E] p-2 rounded-lg border border-[#22272F]">
+                        "{user.bio}"
+                      </p>
                     )}
-                    <div className="overflow-hidden">
-                      <p className="text-slate-200 font-bold truncate">{user.name}</p>
-                      <p className="text-slate-400 text-[11px] truncate font-mono">{user.email}</p>
-                      <span className={`inline-block mt-1 text-[9px] font-mono px-1.5 py-0.5 rounded border ${roleConfig.badgeClass}`}>
-                        {roleConfig.clearanceLevel.split('·')[0].trim()}
+                  </div>
+
+                  {/* Interactive Role Switcher Section for Demo */}
+                  <div className="px-4 py-2.5 border-b border-[#22272F] bg-[#0B0C0E]/50">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3 text-cyan-400" />
+                        Role Switcher (RBAC Demo):
                       </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1">
+                      {(['HR Admin', 'HR Manager', 'Employee'] as UserRole[]).map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => {
+                            onSwitchRole(r);
+                          }}
+                          className={`px-1.5 py-1 rounded text-[10px] font-mono font-semibold transition-all cursor-pointer ${
+                            user.role === r
+                              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                              : 'bg-[#141619] hover:bg-[#1c2026] text-slate-400 border border-[#22272F]'
+                          }`}
+                        >
+                          {r === 'HR Admin' ? 'Admin' : r === 'HR Manager' ? 'Manager' : 'Employee'}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  {user.bio && (
-                    <p className="mt-2.5 text-[11px] text-slate-400 italic line-clamp-2 bg-[#0B0C0E] p-2 rounded-lg border border-[#22272F]">
-                      "{user.bio}"
-                    </p>
-                  )}
-                </div>
+                  {/* Nav Links */}
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        onNavigate('/dashboard/tasks-sla');
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2 text-slate-300 hover:bg-[#22272F] hover:text-red-400 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Clock className="w-3.5 h-3.5 text-red-400" />
+                        <span>Employee Tasks & HR Alerts</span>
+                      </div>
+                      {activeAlertsCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-red-500 text-white">
+                          {activeAlertsCount}
+                        </span>
+                      )}
+                    </button>
 
-                {/* Interactive Role Switcher Section for Demo */}
-                <div className="px-4 py-2.5 border-b border-[#22272F] bg-[#0B0C0E]/50">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                      <RefreshCw className="w-3 h-3 text-cyan-400" />
-                      Role Switcher (RBAC Demo):
-                    </span>
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        onNavigate('/dashboard/meetings');
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-slate-300 hover:bg-[#22272F] hover:text-cyan-400 transition-colors text-left"
+                    >
+                      <MessageSquareQuote className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Meeting Actions Intelligence</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        onNavigate('/dashboard/settings');
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-slate-300 hover:bg-[#22272F] hover:text-cyan-400 transition-colors text-left"
+                    >
+                      <User className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Edit Profile, Avatar & Bio</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        onNavigate('/dashboard/audit-trail');
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-slate-300 hover:bg-[#22272F] hover:text-emerald-400 transition-colors text-left"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Cryptographic Audit Vault</span>
+                    </button>
                   </div>
-                  <div className="grid grid-cols-3 gap-1">
-                    {(['HR Admin', 'HR Manager', 'Employee'] as UserRole[]).map((r) => (
-                      <button
-                        key={r}
-                        onClick={() => {
-                          onSwitchRole(r);
-                        }}
-                        className={`px-1.5 py-1 rounded text-[10px] font-mono font-semibold transition-all cursor-pointer ${
-                          user.role === r
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                            : 'bg-[#141619] hover:bg-[#1c2026] text-slate-400 border border-[#22272F]'
-                        }`}
-                      >
-                        {r === 'HR Admin' ? 'Admin' : r === 'HR Manager' ? 'Manager' : 'Employee'}
-                      </button>
-                    ))}
+
+                  <div className="pt-1 border-t border-[#22272F]">
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        onLogout();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-red-400 hover:bg-red-950/30 transition-colors text-left cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out & Terminate Session</span>
+                    </button>
                   </div>
                 </div>
-
-                {/* Nav Links */}
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      setProfileOpen(false);
-                      onNavigate('/dashboard/settings');
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-slate-300 hover:bg-[#22272F] hover:text-cyan-400 transition-colors text-left"
-                  >
-                    <User className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Edit Profile, Avatar & Bio</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setProfileOpen(false);
-                      onNavigate('/dashboard/audit-trail');
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-slate-300 hover:bg-[#22272F] hover:text-emerald-400 transition-colors text-left"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Cryptographic Audit Vault</span>
-                  </button>
-                </div>
-
-                <div className="pt-1 border-t border-[#22272F]">
-                  <button
-                    onClick={() => {
-                      setProfileOpen(false);
-                      onLogout();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-red-400 hover:bg-red-950/30 transition-colors text-left cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Sign Out & Terminate Session</span>
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
@@ -303,6 +377,11 @@ export const Navigation: React.FC<NavigationProps> = ({
               >
                 <Icon className="w-3 h-3" />
                 <span>{item.label}</span>
+                {item.badgeCount !== undefined && item.badgeCount > 0 && (
+                  <span className="px-1 py-0.2 rounded-full text-[9px] bg-red-500 text-white font-bold">
+                    {item.badgeCount}
+                  </span>
+                )}
                 {!isAllowed && <Lock className="w-2.5 h-2.5 text-amber-500/80 ml-0.5" />}
               </button>
             );

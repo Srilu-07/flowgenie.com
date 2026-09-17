@@ -8,8 +8,23 @@ import { AgentMeshMap } from './components/AgentMeshMap';
 import { AuditTrailVerifier } from './components/AuditTrailVerifier';
 import { SettingsPanel } from './components/SettingsPanel';
 import { AccessDenied } from './components/AccessDenied';
-import { AuditRecord, TelemetryMetrics, UserProfile, UserRole, ROLE_PERMISSIONS } from './types/agent';
+import { TaskSLAWatchdog } from './components/TaskSLAWatchdog';
+import { MeetingActionsIntelligence } from './components/MeetingActionsIntelligence';
+
+import { 
+  AuditRecord, 
+  TelemetryMetrics, 
+  UserProfile, 
+  UserRole, 
+  ROLE_PERMISSIONS, 
+  EmployeeTask, 
+  HRAlert, 
+  MeetingWorkflow, 
+  MeetingActionItem 
+} from './types/agent';
 import { INITIAL_AUDIT_RECORDS } from './services/mockData';
+import { INITIAL_EMPLOYEE_TASKS, INITIAL_HR_ALERTS, INITIAL_MEETINGS } from './services/mockTasksData';
+import { generateHMACSignature } from './utils/cryptoUtils';
 
 const DEFAULT_USER: UserProfile = {
   name: 'Alex Mercer',
@@ -72,6 +87,33 @@ export default function App() {
     return INITIAL_AUDIT_RECORDS;
   });
 
+  // Employee Tasks State with persistence
+  const [tasks, setTasks] = useState<EmployeeTask[]>(() => {
+    try {
+      const saved = localStorage.getItem('flowgenie_employee_tasks');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_EMPLOYEE_TASKS;
+  });
+
+  // HR Inactivity Alerts State with persistence
+  const [hrAlerts, setHrAlerts] = useState<HRAlert[]>(() => {
+    try {
+      const saved = localStorage.getItem('flowgenie_hr_alerts');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_HR_ALERTS;
+  });
+
+  // Meeting Actions State with persistence
+  const [meetings, setMeetings] = useState<MeetingWorkflow[]>(() => {
+    try {
+      const saved = localStorage.getItem('flowgenie_meetings');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_MEETINGS;
+  });
+
   // Metrics
   const [metrics, setMetrics] = useState<TelemetryMetrics>(() => {
     try {
@@ -128,6 +170,9 @@ export default function App() {
     setIsAuthenticated(false);
     setUser(DEFAULT_USER);
     setAuditRecords(INITIAL_AUDIT_RECORDS);
+    setTasks(INITIAL_EMPLOYEE_TASKS);
+    setHrAlerts(INITIAL_HR_ALERTS);
+    setMeetings(INITIAL_MEETINGS);
     setMetrics(DEFAULT_METRICS);
     navigate('/');
   };
@@ -153,7 +198,7 @@ export default function App() {
     }
   };
 
-  // Record Created Handler
+  // Record Created Handler (appends to Cryptographic Ledger)
   const handleAuditRecordCreated = (newRecord: AuditRecord) => {
     setAuditRecords(prev => {
       const updated = [newRecord, ...prev];
@@ -175,12 +220,210 @@ export default function App() {
     });
   };
 
+  // Append a specialized HMAC audit entry
+  const recordAutonomousAuditAction = (action: string, actor: string, target: string, details: string) => {
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+    const payload = `${action}:${actor}:${target}:${now}`;
+    const newRecord: AuditRecord = {
+      id: `AUDIT-${Math.floor(10000 + Math.random() * 90000)}`,
+      timestamp: now,
+      workflowId: 'WF-SLA-WATCHDOG',
+      agentName: actor,
+      action,
+      targetEntity: target,
+      rawPayload: { details, loggedAt: now },
+      hmacSignature: generateHMACSignature(payload),
+      status: 'VERIFIED',
+      algorithm: 'HMAC-SHA256',
+      secretVersion: 'v2026.09'
+    };
+    handleAuditRecordCreated(newRecord);
+  };
+
+  // Update Task handler
+  const handleUpdateTask = (updatedTask: EmployeeTask) => {
+    setTasks(prev => {
+      const updated = prev.map(t => t.id === updatedTask.id ? updatedTask : t);
+      try {
+        localStorage.setItem('flowgenie_employee_tasks', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    // Check if task transitioned to overdue with inactivity and HR hasn't been alerted
+    if (updatedTask.status === 'overdue' && !updatedTask.hrAlertSent && updatedTask.inactivityHours >= 24) {
+      handleTriggerManualHRAlert(updatedTask.id);
+    }
+  };
+
+  // Trigger HR Alert when employee is not doing work / overdue
+  const handleTriggerManualHRAlert = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const alertId = `ALERT-HR-${Math.floor(1000 + Math.random() * 9000)}`;
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+
+    const newAlert: HRAlert = {
+      id: alertId,
+      taskId: task.id,
+      employeeId: task.employeeId,
+      employeeName: task.employeeName,
+      employeeRole: task.role,
+      department: task.department,
+      taskTitle: task.title,
+      dueDate: task.dueDate,
+      severity: task.priority === 'critical' ? 'CRITICAL' : 'HIGH',
+      reason: `Employee inactivity threshold breached (${task.inactivityHours}h without activity past deadline). Automated SLA Watchdog dispatched high-priority notification to HR Manager.`,
+      timestamp: now,
+      status: 'active',
+      autonomousActionsTaken: [
+        'Dispatched high-priority Workday webhook notification to HR Manager',
+        'Sent urgent Slack DM & corporate email nudge to employee',
+        'Recorded signed HMAC-SHA256 entry in tamper-proof compliance ledger'
+      ],
+      recommendedAction: 'Schedule emergency 1-on-1 blocker triage or trigger autonomous task re-allocation to secondary engineer.'
+    };
+
+    setHrAlerts(prev => {
+      const updated = [newAlert, ...prev.filter(a => a.taskId !== taskId)];
+      try {
+        localStorage.setItem('flowgenie_hr_alerts', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    // Update task escalation level
+    const updatedTask: EmployeeTask = {
+      ...task,
+      status: 'overdue',
+      escalationLevel: 'alerted_hr',
+      hrAlertSent: true,
+      hrAlertTimestamp: now
+    };
+    handleUpdateTask(updatedTask);
+
+    // Record in Cryptographic Audit Ledger
+    recordAutonomousAuditAction(
+      'HR_INACTIVITY_ALERT_TRIGGERED',
+      'Autonomous SLA Watchdog Agent',
+      `${task.employeeName} (${task.employeeId})`,
+      `Employee failed to complete ${task.title} by deadline ${task.dueDate}. Inactivity: ${task.inactivityHours}h. High-urgency alert delivered to People Operations.`
+    );
+  };
+
+  // Resolve HR Alert
+  const handleResolveAlert = (alertId: string, remediationNotes?: string) => {
+    setHrAlerts(prev => {
+      const updated = prev.map(a => a.id === alertId ? {
+        ...a,
+        status: 'resolved' as const,
+        recommendedAction: remediationNotes || 'Resolved by HR Operator.'
+      } : a);
+      try {
+        localStorage.setItem('flowgenie_hr_alerts', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    recordAutonomousAuditAction(
+      'HR_ALERT_RESOLVED',
+      'Alex Mercer (HR Admin)',
+      'Enterprise SLA Sentinel',
+      `Alert ${alertId} resolved. Employee unblocked and task schedule re-synchronized.`
+    );
+  };
+
+  // Simulate Inactivity Breach for Live Demo Evaluation
+  const handleSimulateInactivityBreach = () => {
+    // Pick an active or in-progress task
+    const candidate = tasks.find(t => t.status === 'in_progress' || t.status === 'at_risk') || tasks[0];
+    if (!candidate) return;
+
+    const breached: EmployeeTask = {
+      ...candidate,
+      status: 'overdue',
+      inactivityHours: 52,
+      lastPingTime: '2026-09-15 08:00:00 UTC',
+      escalationLevel: 'alerted_hr',
+      hrAlertSent: false
+    };
+
+    handleUpdateTask(breached);
+    handleTriggerManualHRAlert(breached.id);
+    navigate('/dashboard/tasks-sla');
+  };
+
+  // Add New Task
+  const handleAddTask = (newTaskData: Omit<EmployeeTask, 'id' | 'escalationLevel'>) => {
+    const newTask: EmployeeTask = {
+      ...newTaskData,
+      id: `TASK-${Math.floor(1000 + Math.random() * 9000)}`,
+      escalationLevel: 'none'
+    };
+
+    setTasks(prev => {
+      const updated = [newTask, ...prev];
+      try {
+        localStorage.setItem('flowgenie_employee_tasks', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    recordAutonomousAuditAction(
+      'EMPLOYEE_TASK_REGISTERED',
+      'Autonomous Decision Agent',
+      `${newTask.employeeName} (${newTask.employeeId})`,
+      `Registered new task ${newTask.title} under 24h SLA watchdog. Category: ${newTask.category}.`
+    );
+  };
+
+  // Dispatch Action Item from Meeting to Tasks
+  const handleDispatchActionToTasks = (action: MeetingActionItem, meetingTitle: string) => {
+    const newTask: EmployeeTask = {
+      id: `TASK-${action.id}`,
+      employeeId: 'EMP-' + Math.floor(1000 + Math.random() * 9000),
+      employeeName: action.assigneeName,
+      employeeEmail: `${action.assigneeName.toLowerCase().replace(' ', '.')}@helpxgrow.ai`,
+      department: 'Autonomous Engineering',
+      role: action.assigneeRole,
+      title: action.title,
+      description: `Action item autonomously transcribed and extracted from executive sync: "${meetingTitle}". Confidence: ${Math.round(action.confidenceScore * 100)}%.`,
+      category: 'Meeting Action Item',
+      assignedDate: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
+      dueDate: action.dueDate,
+      slaHours: 24,
+      status: 'in_progress',
+      priority: action.priority,
+      inactivityHours: 0,
+      escalationLevel: 'none',
+      sourceMeetingId: meetingTitle
+    };
+
+    setTasks(prev => {
+      const updated = [newTask, ...prev.filter(t => t.id !== newTask.id)];
+      try {
+        localStorage.setItem('flowgenie_employee_tasks', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    recordAutonomousAuditAction(
+      'MEETING_ACTION_DISPATCHED',
+      'Meeting Actions NLP Agent',
+      `${action.assigneeName} (${action.assigneeRole})`,
+      `Autonomously dispatched "${action.title}" with SLA deadline ${action.dueDate} into tracking watchdog.`
+    );
+  };
+
   // If not authenticated, render the OAuth login gate
   if (!isAuthenticated || currentRoute === '/') {
     return <LoginGate onSuccessLogin={handleLoginSuccess} />;
   }
 
   const rolePerms = ROLE_PERMISSIONS[user.role] || ROLE_PERMISSIONS['Employee'];
+  const activeAlertsCount = hrAlerts.filter(a => a.status === 'active').length;
+  const overdueTasksCount = tasks.filter(t => t.status === 'overdue').length;
 
   return (
     <div className="min-h-screen bg-[#0B0C0E] text-slate-100 flex flex-col font-sans">
@@ -191,6 +434,7 @@ export default function App() {
         user={user}
         onLogout={handleLogout}
         onSwitchRole={handleSwitchRole}
+        activeAlertsCount={activeAlertsCount}
       />
 
       {/* Main Content Area with RBAC Route Guards */}
@@ -201,7 +445,53 @@ export default function App() {
             onNavigate={navigate}
             metrics={metrics}
             userRole={user.role}
+            activeAlertsCount={activeAlertsCount}
+            overdueTasksCount={overdueTasksCount}
           />
+        )}
+
+        {/* Route: /dashboard/tasks-sla (Employee Tasks, Deadlines & HR Alerts) */}
+        {currentRoute === '/dashboard/tasks-sla' && (
+          rolePerms.canAccessTasksAndSLA ? (
+            <TaskSLAWatchdog
+              tasks={tasks}
+              hrAlerts={hrAlerts}
+              userRole={user.role}
+              onUpdateTask={handleUpdateTask}
+              onResolveAlert={handleResolveAlert}
+              onTriggerManualHRAlert={handleTriggerManualHRAlert}
+              onAddTask={handleAddTask}
+              onSimulateInactivityBreach={handleSimulateInactivityBreach}
+            />
+          ) : (
+            <AccessDenied
+              sectionName="Employee Tasks & SLA Watchdog"
+              requiredRoles={['HR Admin', 'Admin', 'HR Manager', 'Employee']}
+              currentRole={user.role}
+              onSwitchRole={handleSwitchRole}
+              onNavigate={navigate}
+            />
+          )
+        )}
+
+        {/* Route: /dashboard/meetings (Meeting Actions & Intelligence) */}
+        {currentRoute === '/dashboard/meetings' && (
+          rolePerms.canAccessMeetings ? (
+            <MeetingActionsIntelligence
+              meetings={meetings}
+              onDispatchActionToTasks={handleDispatchActionToTasks}
+              userRole={user.role}
+              onNavigate={navigate}
+            />
+          ) : (
+            <AccessDenied
+              sectionName="Meeting Actions & Autonomous Intelligence"
+              requiredRoles={['HR Admin', 'Admin', 'HR Manager', 'Employee']}
+              currentRole={user.role}
+              onSwitchRole={handleSwitchRole}
+              onNavigate={navigate}
+            />
+          )
         )}
 
         {/* Route: /dashboard/onboarding */}

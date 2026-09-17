@@ -108,11 +108,15 @@ export interface UserProfile {
 export interface RolePermissionConfig {
   canAccessOverview: boolean;
   canAccessOnboarding: boolean;
+  canAccessTasksAndSLA: boolean;
+  canAccessMeetings: boolean;
   canAccessArchitecture: boolean;
   canAccessAgentMap: boolean;
   canAccessAuditTrail: boolean;
   canAccessSettings: boolean;
   canExecuteOnboarding: boolean;
+  canTriggerHRAlert: boolean;
+  canApplySelfCorrection: boolean;
   canResetPlatform: boolean;
   label: string;
   clearanceLevel: string;
@@ -124,11 +128,15 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
   'HR Admin': {
     canAccessOverview: true,
     canAccessOnboarding: true,
+    canAccessTasksAndSLA: true,
+    canAccessMeetings: true,
     canAccessArchitecture: true,
     canAccessAgentMap: true,
     canAccessAuditTrail: true,
     canAccessSettings: true,
     canExecuteOnboarding: true,
+    canTriggerHRAlert: true,
+    canApplySelfCorrection: true,
     canResetPlatform: true,
     label: 'HR Admin',
     clearanceLevel: 'Tier 1 · Full Autonomous Control',
@@ -138,11 +146,15 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
   'Admin': {
     canAccessOverview: true,
     canAccessOnboarding: true,
+    canAccessTasksAndSLA: true,
+    canAccessMeetings: true,
     canAccessArchitecture: true,
     canAccessAgentMap: true,
     canAccessAuditTrail: true,
     canAccessSettings: true,
     canExecuteOnboarding: true,
+    canTriggerHRAlert: true,
+    canApplySelfCorrection: true,
     canResetPlatform: true,
     label: 'Admin',
     clearanceLevel: 'Tier 1 · Full Autonomous Control',
@@ -152,32 +164,108 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
   'HR Manager': {
     canAccessOverview: true,
     canAccessOnboarding: true,
+    canAccessTasksAndSLA: true,
+    canAccessMeetings: true,
     canAccessArchitecture: false,
     canAccessAgentMap: false,
     canAccessAuditTrail: true,
     canAccessSettings: true,
     canExecuteOnboarding: true,
+    canTriggerHRAlert: true,
+    canApplySelfCorrection: true,
     canResetPlatform: false,
     label: 'HR Manager',
     clearanceLevel: 'Tier 2 · Workflow Operations & Audits',
     badgeClass: 'text-emerald-400 border-emerald-500/40 bg-emerald-950/40',
-    description: 'Operational clearance to execute onboarding pipelines and inspect HMAC audit logs. Restricted from low-level topology and platform resets.'
+    description: 'Operational clearance to execute onboarding pipelines, manage employee task SLAs, and triage HR alerts. Restricted from low-level topology and platform resets.'
   },
   'Employee': {
     canAccessOverview: true,
     canAccessOnboarding: false,
+    canAccessTasksAndSLA: true,
+    canAccessMeetings: true,
     canAccessArchitecture: false,
     canAccessAgentMap: false,
     canAccessAuditTrail: false,
     canAccessSettings: true,
     canExecuteOnboarding: false,
+    canTriggerHRAlert: false,
+    canApplySelfCorrection: false,
     canResetPlatform: false,
     label: 'Employee',
-    clearanceLevel: 'Tier 3 · Self-Service & Profile Only',
+    clearanceLevel: 'Tier 3 · Self-Service & Personal Tasks',
     badgeClass: 'text-amber-400 border-amber-500/40 bg-amber-950/40',
-    description: 'Self-service identity clearance. Authorized for personal profile management and telemetry viewing. Enterprise agent triggers are locked.'
+    description: 'Self-service identity clearance. Authorized to manage personal profile, track assigned tasks and deadlines, and view meeting action items.'
   }
 };
+
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'overdue' | 'at_risk';
+export type TaskPriority = 'critical' | 'high' | 'medium' | 'low';
+export type EscalationLevel = 'none' | 'warning' | 'alerted_hr' | 'auto_remediated';
+
+export interface EmployeeTask {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeEmail: string;
+  employeeAvatar?: string;
+  department: string;
+  role: string;
+  title: string;
+  description: string;
+  category: 'Onboarding Compliance' | 'Security & Keys' | 'Sprint Deliverable' | 'Meeting Action Item' | 'Policy Attestation';
+  assignedDate: string;
+  dueDate: string;
+  slaHours: number;
+  status: TaskStatus;
+  priority: TaskPriority;
+  inactivityHours: number;
+  lastPingTime?: string;
+  escalationLevel: EscalationLevel;
+  hrAlertSent?: boolean;
+  hrAlertTimestamp?: string;
+  selfCorrectionAction?: string;
+  sourceMeetingId?: string;
+}
+
+export interface HRAlert {
+  id: string;
+  taskId: string;
+  employeeId: string;
+  employeeName: string;
+  employeeRole: string;
+  department: string;
+  taskTitle: string;
+  dueDate: string;
+  severity: 'CRITICAL' | 'HIGH' | 'WARNING';
+  reason: string;
+  timestamp: string;
+  status: 'active' | 'investigating' | 'resolved' | 'auto_remediated';
+  autonomousActionsTaken: string[];
+  recommendedAction: string;
+}
+
+export interface MeetingActionItem {
+  id: string;
+  title: string;
+  assigneeName: string;
+  assigneeRole: string;
+  dueDate: string;
+  priority: TaskPriority;
+  status: 'pending' | 'in_progress' | 'completed';
+  confidenceScore: number;
+}
+
+export interface MeetingWorkflow {
+  id: string;
+  title: string;
+  date: string;
+  durationMinutes: number;
+  participants: string[];
+  rawTranscriptSnippet: string;
+  extractedActions: MeetingActionItem[];
+  status: 'PROCESSED' | 'EXTRACTING' | 'DISPATCHED';
+}
 
 export interface AuthSession {
   isAuthenticated: boolean;

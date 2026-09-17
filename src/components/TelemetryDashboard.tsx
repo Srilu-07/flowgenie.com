@@ -9,10 +9,16 @@ import {
   Terminal, 
   Network, 
   FileCheck, 
-  Lock,
-  Sparkles,
-  TrendingUp,
-  Server
+  Lock, 
+  Sparkles, 
+  TrendingUp, 
+  Server, 
+  Clock, 
+  MessageSquareQuote, 
+  Flame, 
+  BellRing, 
+  AlertTriangle,
+  PlayCircle
 } from 'lucide-react';
 import { TelemetryMetrics, UserRole, ROLE_PERMISSIONS } from '../types/agent';
 
@@ -20,19 +26,23 @@ interface TelemetryDashboardProps {
   onNavigate: (route: string) => void;
   metrics: TelemetryMetrics;
   userRole?: UserRole;
+  activeAlertsCount?: number;
+  overdueTasksCount?: number;
 }
 
 export const TelemetryDashboard: React.FC<TelemetryDashboardProps> = ({
   onNavigate,
   metrics,
-  userRole = 'HR Admin'
+  userRole = 'HR Admin',
+  activeAlertsCount = 2,
+  overdueTasksCount = 2
 }) => {
   const currentPerms = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS['Employee'];
   const canRunPipeline = currentPerms.canExecuteOnboarding;
 
   return (
     <div className="space-y-8">
-      {/* Header Banner */}
+      {/* Top Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-[#141619] border border-[#22272F] relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 blur-3xl pointer-events-none" />
         <div className="relative z-10">
@@ -78,7 +88,40 @@ export const TelemetryDashboard: React.FC<TelemetryDashboardProps> = ({
         </div>
       </div>
 
-      {/* Metric Cards Grid - Exact 4 Core Cards */}
+      {/* URGENT HR INACTIVITY ALERT BANNER */}
+      {activeAlertsCount > 0 && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-red-950/40 via-[#141619] to-red-950/20 border border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.15)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/40 shrink-0">
+              <Flame className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/30 text-red-200 border border-red-500/40">
+                  {activeAlertsCount} ACTIVE HR ESCALATIONS
+                </span>
+                <span className="text-xs font-mono text-slate-400">Employee Inactivity Detected</span>
+              </div>
+              <p className="text-sm font-bold text-white mt-1">
+                Employee(s) are overdue or not completing compliance tasks (48h inactivity breach).
+              </p>
+              <p className="text-xs text-red-300/80 font-mono mt-0.5">
+                Autonomous SLA Watchdog has triggered notifications to People Ops and queued self-correcting interventions.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onNavigate('/dashboard/tasks-sla')}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-400 font-mono text-xs font-bold transition-all cursor-pointer shadow-lg shrink-0"
+          >
+            <BellRing className="w-4 h-4" />
+            <span>Review Alerts & Self-Correct →</span>
+          </button>
+        </div>
+      )}
+
+      {/* Metric Cards Grid - Core Telemetry */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Card 1: Total Tasks Completed */}
         <div className="p-5 rounded-2xl bg-[#141619] border border-[#22272F] hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all group relative overflow-hidden">
@@ -147,6 +190,114 @@ export const TelemetryDashboard: React.FC<TelemetryDashboardProps> = ({
           <div className="mt-2.5 flex items-center gap-1.5 text-xs font-mono text-slate-300">
             <Lock className="w-3.5 h-3.5 text-emerald-400" />
             <span>SOC-2 / HMAC Signed</span>
+          </div>
+        </div>
+      </div>
+
+      {/* CORE CAPABILITY HUB ("WHERE ARE ALL THESE" SECTION) */}
+      <div className="p-6 rounded-2xl bg-[#141619] border border-[#22272F] space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#22272F] pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <h2 className="text-base font-bold text-white">Autonomous Enterprise Workflow Modules</h2>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Complete multi-agent workplace suite across onboarding, meeting actions, SLA monitoring & tamper-proof audit trails.
+            </p>
+          </div>
+          <span className="text-[11px] font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-500/30 px-2.5 py-1 rounded-full">
+            All 4 Pillars Live
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Pillar 1: Onboarding Pipeline */}
+          <div 
+            onClick={() => onNavigate('/dashboard/onboarding')}
+            className="p-4 rounded-xl bg-[#0B0C0E] border border-[#22272F] hover:border-cyan-500/50 hover:bg-[#121418] transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-3 group-hover:scale-110 transition-transform">
+                <PlayCircle className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
+                1. Onboarding Pipeline
+              </h3>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Autonomous 5-step DAG provisioning Workday HRIS, role SLA matrices, GitHub teams & Slack channels.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-[11px] font-mono text-cyan-400 font-semibold">
+              <span>Launch Pipeline</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+
+          {/* Pillar 2: Meeting Actions */}
+          <div 
+            onClick={() => onNavigate('/dashboard/meetings')}
+            className="p-4 rounded-xl bg-[#0B0C0E] border border-[#22272F] hover:border-cyan-500/50 hover:bg-[#121418] transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 mb-3 group-hover:scale-110 transition-transform">
+                <MessageSquareQuote className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">
+                2. Meeting Actions Intelligence
+              </h3>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Autonomous transcript ingestion, commitment detection, deliverable owner mapping & deadline scheduling.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-[11px] font-mono text-sky-400 font-semibold">
+              <span>View Meeting Actions</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+
+          {/* Pillar 3: Tasks & SLA Watchdog */}
+          <div 
+            onClick={() => onNavigate('/dashboard/tasks-sla')}
+            className="p-4 rounded-xl bg-[#0B0C0E] border border-red-500/30 hover:border-red-500/60 hover:bg-[#121418] transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mb-3 group-hover:scale-110 transition-transform">
+                <Clock className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white group-hover:text-red-300 transition-colors">
+                3. Tasks, Deadlines & HR Alerts
+              </h3>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Monitors employee task progress & inactivity. Automatically alerts HR and triggers self-correcting nudges.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-[11px] font-mono text-red-400 font-semibold">
+              <span>View Watchdog & Alerts</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+
+          {/* Pillar 4: Cryptographic Audit Trail */}
+          <div 
+            onClick={() => onNavigate('/dashboard/audit-trail')}
+            className="p-4 rounded-xl bg-[#0B0C0E] border border-[#22272F] hover:border-emerald-500/50 hover:bg-[#121418] transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3 group-hover:scale-110 transition-transform">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
+                4. Cryptographic Audit Vault
+              </h3>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Immutable SHA-256 HMAC digital signatures, tamper detection simulation & SOC-2 compliance ledger.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-[11px] font-mono text-emerald-400 font-semibold">
+              <span>Inspect Audit Vault</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
           </div>
         </div>
       </div>
@@ -254,15 +405,12 @@ export const TelemetryDashboard: React.FC<TelemetryDashboardProps> = ({
             </div>
           </div>
 
-          <div className="pt-2 border-t border-[#22272F]">
-            <button
-              onClick={() => onNavigate('/dashboard/audit-trail')}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#1c2026] hover:bg-[#22272F] text-slate-300 hover:text-white text-xs font-semibold border border-[#2A303C] transition-colors cursor-pointer"
-            >
-              <FileCheck className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Inspect Cryptographic Audit Trail</span>
-            </button>
-          </div>
+          <button
+            onClick={() => onNavigate('/dashboard/audit-trail')}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0B0C0E] hover:bg-[#181B1F] border border-[#22272F] text-slate-300 hover:text-emerald-300 font-mono text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <span>Verify Cryptographic Audit Trail →</span>
+          </button>
         </div>
       </div>
     </div>
