@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-obsidian: #0B0C0E;
+    --card-obsidian: #141619;
+    --border-obsidian: #22272F;
+    --border-subtle: #1c2026;
+    --cyan-glow: #00F0FF;
+    --emerald-glow: #10B981;
+  }
+
+  body {
+    background-color: #0B0C0E;
+    color: #E2E8F0;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow-x: hidden;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Cybernetic Neon Glow Utilities */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.25), 0 0 4px rgba(0, 240, 255, 0.4);
+}
+
+.glow-cyan-sm {
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3), 0 0 5px rgba(16, 185, 129, 0.5);
+}
+
+.glow-emerald-sm {
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+}
+
+.border-glow-cyan {
+  border-color: rgba(0, 240, 255, 0.6);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+}
+
+.border-glow-emerald {
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+}
+
+/* Custom Cyberpunk Obsidian Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0B0C0E;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #22272F;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00F0FF;
+}
+
+/* Terminal scanline effect */
+.scanline {
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0),
+    rgba(255,255,255,0) 50%,
+    rgba(0, 0, 0, 0.3) 50%,
+    rgba(0, 0, 0, 0.3)
+  );
+  background-size: 100% 4px;
+}
+
+/* Radar pulse animation */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+}
+
+.animate-radar {
+  animation: radar-pulse 3s infinite ease-in-out;
+}
